@@ -1,0 +1,94 @@
+# GOAL
+
+Create a privacy-first React Native (Expo) mobile app called "MirrorMe" that runs on-device face analysis to generate daily looksmax tips, tracks progress, and composes a weekly timelapse. Follow the repo files below and implement production-ready code with clear separation of concerns.
+
+# TECH
+
+- Expo (React Native), TypeScript, Expo Router
+
+- Zustand for state, Expo SQLite for local storage
+
+- Expo Camera + MediaPipe/TFLite (face landmarks)
+
+- React Native Reanimated for micro-interactions
+
+- No backend; no network calls
+
+# FOLDERS
+
+app/
+  _layout.tsx (tabs: Home, Progress, Settings)
+  index.tsx (Home: Scan + Score + Today's Actions)
+  progress.tsx (calendar, gallery, timelapse compose)
+  settings.tsx (privacy, export, delete)
+
+components/
+  ScoreRing.tsx, ActionCard.tsx, Badge.tsx
+
+ml/
+  landmark.ts (camera stream → landmarks)
+  scoring.ts (compute subscores + overall)
+  tips.ts (map subscores → 3 actions)
+
+state/
+  useStore.ts (scans, actions, badges)
+  db.ts (SQLite schema & CRUD per DATA_MODEL.md)
+
+config/
+  flags.ts, theme.ts
+
+utils/
+  media.ts (capture, align framing), timelapse.ts (compose from frames)
+
+# REQUIREMENTS
+
+1. **Onboarding/Consent** modal on first launch, persisted to SQLite
+
+2. **Live Scan** screen: camera preview, Start button, 2-second analysis, show score & subscores
+
+3. **Today's Actions**: pick 3 from tips engine; mark done/undo; store in plan_items
+
+4. **Progress**: grid of dated scans; Play Timelapse (compose mp4 locally)
+
+5. **Badges/Streaks**: award after N consecutive completions
+
+6. **Settings**: Export JSON+media zip; Delete all data; toggle Reduce Motion, High Contrast
+
+7. **Accessibility**: labels, large hit areas
+
+8. **Privacy**: no outbound network, all storage local
+
+# ML
+
+- Implement a stubbed `landmark.ts` with interface and a fake data path; then add actual MediaPipe Face Mesh integration behind a feature flag `USE_FAKE_ML`.
+
+- `scoring.ts` implements heuristics from ML_TECH_SPEC.md with tunable weights.
+
+# DATA
+
+- Implement the SQLite schema from DATA_MODEL.md and CRUD helpers.
+
+# UI
+
+- Implement theming from UI_STYLEGUIDE.md; create ScoreRing (animated), ActionCard, Badge.
+
+- Smooth transitions with Reanimated; respect Reduce Motion flag.
+
+# COPY
+
+- Use strings from COPY.md and LOCALIZATION.md.
+
+# TESTING
+
+- Add unit tests for scoring utils and tips mapping (jest + ts-jest).
+
+# OUTPUT
+
+- Provide all source files in a single code block per file with their paths, plus commands to run.
+
+- After generating code, print a checklist to validate: camera works, fake ML works, data persists, export/delete works.
+
+# START
+
+Begin by scaffolding the Expo app, installing deps, and creating the folder/file skeleton. Then implement features in the order: data → state → ML stub → UI → flows → settings → tests.
+
