@@ -96,21 +96,19 @@ export default function HomeScreen() {
         photo_uri: photoUri,
       };
 
-      await addScan(scanData);
+      const newScan = await addScan(scanData);
 
-      // Get the created scan to create plan items
-      // Use getLatestScan to ensure we have the scan with the correct ID
-      const latestScan = await db.getLatestScan();
-      if (latestScan) {
+      // Attach actions to the scan we just created (not whatever is "latest")
+      if (newScan) {
         for (const actionId of actionIds) {
           await db.createPlanItem({
-            scan_id: latestScan.id,
+            scan_id: newScan.id,
             action_id: actionId,
             status: 'todo',
           });
         }
         // Reload plan items to update the store
-        await loadPlanItems(latestScan.id);
+        await loadPlanItems(newScan.id);
       }
 
       setShowCamera(false);
@@ -384,4 +382,3 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.lg,
   },
 });
-

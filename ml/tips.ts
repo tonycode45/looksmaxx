@@ -3,7 +3,30 @@ import type { Action } from '@/state/db';
 import { strings } from '@/config/strings';
 
 /**
- * Generate 3 prioritized actions based on score results
+ * Score thresholds for action categorization
+ */
+const SCORE_THRESHOLDS = {
+  LOW: 60,
+  MEDIUM: 80,
+} as const;
+
+/**
+ * Maximum number of actions to generate
+ */
+const MAX_ACTIONS = 3;
+
+/**
+ * Generates up to 3 prioritized actions based on score results.
+ * Actions are prioritized by lowest subscores first.
+ * 
+ * @param scoreResult - Score result containing overall score and subscores
+ * @returns Array of actions (without IDs) prioritized by lowest scores
+ * 
+ * @example
+ * ```typescript
+ * const actions = generateActions(scoreResult);
+ * // Returns actions for lowest scoring categories
+ * ```
  */
 export function generateActions(scoreResult: ScoreResult): Omit<Action, 'id'>[] {
   const { subscores } = scoreResult;
@@ -26,7 +49,7 @@ export function generateActions(scoreResult: ScoreResult): Omit<Action, 'id'>[] 
   }
 
   // Fill remaining slots with general tips
-  while (actions.length < 3) {
+  while (actions.length < MAX_ACTIONS) {
     const remainingCategories = subscoreEntries
       .filter(([cat]) => !actions.some((a) => a.category === cat))
       .map(([cat, score]) => [cat, score] as [keyof typeof subscores, number]);
@@ -40,18 +63,27 @@ export function generateActions(scoreResult: ScoreResult): Omit<Action, 'id'>[] 
     }
   }
 
-  return actions.slice(0, 3);
+  return actions.slice(0, MAX_ACTIONS);
 }
 
 /**
- * Generate action for a specific category
+ * Generates an action for a specific category based on the score.
+ * 
+ * @param category - Category of the subscore (posture, symmetry, skin, hair)
+ * @param score - Score value (0-100) for the category
+ * @returns Action object without ID
+ * 
+ * @remarks
+ * Actions are customized based on score thresholds:
+ * - Low (< 60): More intensive actions with longer duration
+ * - Medium/High (>= 60): Maintenance actions with shorter duration
  */
 function generateActionForCategory(
   category: keyof ScoreResult['subscores'],
   score: number
 ): Omit<Action, 'id'> {
-  const isLow = score < 60;
-  const isMedium = score >= 60 && score < 80;
+  const isLow = score < SCORE_THRESHOLDS.LOW;
+  const isMedium = score >= SCORE_THRESHOLDS.LOW && score < SCORE_THRESHOLDS.MEDIUM;
 
   switch (category) {
     case 'posture':
@@ -100,7 +132,13 @@ function generateActionForCategory(
 }
 
 /**
- * Generate a general action
+ * Generates a general fallback action when no specific category actions are available.
+ * 
+ * @returns General action object without ID
+ * 
+ * @remarks
+ * Used as a fallback when all categories have been covered or when
+ * no specific improvements are needed.
  */
 function generateGeneralAction(): Omit<Action, 'id'> {
   return {

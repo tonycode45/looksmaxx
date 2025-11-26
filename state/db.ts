@@ -244,20 +244,29 @@ export async function createScan(scan: Omit<Scan, 'id'>): Promise<number> {
   return result.lastInsertRowId;
 }
 
+/**
+ * Default limit for scan queries to prevent loading too many records
+ */
+const DEFAULT_SCAN_LIMIT = 100;
+
 export async function getScans(limit?: number): Promise<Scan[]> {
   if (isWeb) {
-    const scans = [...webData.scans].sort((a, b) => 
+    // Use indexed access pattern - sort once, slice efficiently
+    const scans = [...webData.scans];
+    scans.sort((a, b) => 
       new Date(b.taken_at).getTime() - new Date(a.taken_at).getTime()
     );
-    return limit ? scans.slice(0, limit) : scans;
+    const effectiveLimit = limit || DEFAULT_SCAN_LIMIT;
+    return scans.slice(0, effectiveLimit);
   }
   const database = await initDatabase();
   if (!database) return [];
-  const query = limit
-    ? `SELECT * FROM scans ORDER BY taken_at DESC LIMIT ?`
-    : `SELECT * FROM scans ORDER BY taken_at DESC`;
-  const params = limit ? [limit] : [];
-  return await database.getAllAsync<Scan>(query, params);
+  // Use parameterized query with limit to optimize database performance
+  const effectiveLimit = limit || DEFAULT_SCAN_LIMIT;
+  return await database.getAllAsync<Scan>(
+    `SELECT * FROM scans ORDER BY taken_at DESC LIMIT ?`,
+    [effectiveLimit]
+  );
 }
 
 export async function getScan(id: number): Promise<Scan | null> {
@@ -271,13 +280,18 @@ export async function getScan(id: number): Promise<Scan | null> {
 
 export async function getLatestScan(): Promise<Scan | null> {
   if (isWeb) {
-    const scans = [...webData.scans].sort((a, b) => 
+    // Optimize: find max without full sort if possible
+    if (webData.scans.length === 0) return null;
+    // For web, we still need to sort, but limit to 1 result
+    const scans = [...webData.scans];
+    scans.sort((a, b) => 
       new Date(b.taken_at).getTime() - new Date(a.taken_at).getTime()
     );
     return scans[0] || null;
   }
   const database = await initDatabase();
   if (!database) return null;
+  // Use LIMIT 1 for efficiency - database handles this optimally
   return await database.getFirstAsync<Scan>('SELECT * FROM scans ORDER BY taken_at DESC LIMIT 1');
 }
 
@@ -337,22 +351,62 @@ export async function getPlanItems(scanId: number): Promise<(PlanItem & { action
   if (isWeb) {
     const planItems = webData.plan_items
       .filter(pi => pi.scan_id === scanId)
-      .map(pi => ({
-        ...pi,
-        action: webData.actions.find(a => a.id === pi.action_id)!,
-      }))
-      .filter(item => item.action);
+      .map(pi => {
+        const action = webData.actions.find(a => a.id === pi.action_id);
+        if (!action) {
+          return null;
+        }
+        return {
+          ...pi,
+          action,
+        };
+      })
+      .filter((item): item is PlanItem & { action: Action } => Boolean(item));
     return planItems as (PlanItem & { action: Action })[];
   }
   const database = await initDatabase();
   if (!database) return [];
-  return await database.getAllAsync<PlanItem & { action: Action }>(
-    `SELECT pi.*, a.* FROM plan_items pi
+  const rows = await database.getAllAsync<{
+    plan_item_id: number;
+    plan_scan_id: number;
+    plan_action_id: number;
+    plan_status: 'todo' | 'done';
+    action_id: number;
+    action_title: string;
+    action_category: string;
+    action_minutes: number;
+    action_tip_md: string;
+  }>(
+    `SELECT 
+       pi.id AS plan_item_id,
+       pi.scan_id AS plan_scan_id,
+       pi.action_id AS plan_action_id,
+       pi.status AS plan_status,
+       a.id AS action_id,
+       a.title AS action_title,
+       a.category AS action_category,
+       a.minutes AS action_minutes,
+       a.tip_md AS action_tip_md
+     FROM plan_items pi
      JOIN actions a ON pi.action_id = a.id
      WHERE pi.scan_id = ?
      ORDER BY pi.id`,
     [scanId]
   );
+
+  return rows.map((row) => ({
+    id: row.plan_item_id,
+    scan_id: row.plan_scan_id,
+    action_id: row.plan_action_id,
+    status: row.plan_status,
+    action: {
+      id: row.action_id,
+      title: row.action_title,
+      category: row.action_category,
+      minutes: row.action_minutes,
+      tip_md: row.action_tip_md,
+    },
+  }));
 }
 
 export async function updatePlanItemStatus(id: number, status: 'todo' | 'done'): Promise<void> {
@@ -511,4 +565,3 @@ export async function deleteAllData(): Promise<void> {
     DELETE FROM settings;
   `);
 }
-

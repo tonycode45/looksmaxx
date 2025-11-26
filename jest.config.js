@@ -5,6 +5,9 @@ module.exports = {
   },
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
+  },
   collectCoverageFrom: [
     'app/**/*.{ts,tsx}',
     'components/**/*.{ts,tsx}',
@@ -15,4 +18,3 @@ module.exports = {
     '!**/node_modules/**',
   ],
 };
-

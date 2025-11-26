@@ -21,7 +21,7 @@ export default function SettingsScreen() {
     highContrast,
     setReduceMotion,
     setHighContrast,
-    refreshScans,
+    resetAfterDelete,
   } = useStore();
 
   const handleExportData = async () => {
@@ -61,7 +61,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await deleteAllData();
-              await refreshScans();
+              resetAfterDelete();
               Alert.alert('Success', 'All data has been deleted.');
             } catch (error) {
               console.error('Error deleting data:', error);
@@ -220,4 +220,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
